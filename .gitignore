@@ -1,0 +1,62 @@
+-- CTE: Extract data from Facebook Ads, including relevant metrics
+with facebook_table as (
+select 
+     ad_date,  -- Date of the advertisement
+     campaign_name,  -- Name of the campaign
+     adset_name,  -- Name of the ad set
+     spend,  -- Advertising spend
+     impressions,  -- Number of impressions
+     reach,  -- Number of unique users reached
+     clicks,  -- Number of clicks
+     leads,  -- Number of leads
+     value  -- Value generated (e.g., revenue)
+from facebook_ads_basic_daily 
+join facebook_adset on facebook_ads_basic_daily.adset_id = facebook_adset.adset_id  -- Join with AdSet table
+join facebook_campaign on facebook_ads_basic_daily.campaign_id = facebook_campaign.campaign_id  -- Join with Campaign table
+),
+
+-- CTE: Combine data from Facebook Ads and Google Ads
+all_ads_data as (
+select 
+      ad_date,  -- Date of the advertisement
+      'Facebook Ads' as "media_source",  -- Media source for Facebook
+      campaign_name,  -- Campaign name
+      adset_name,  -- Ad set name
+      spend,  -- Advertising spend
+      impressions,  -- Number of impressions
+      clicks,  -- Number of clicks
+      value  -- Value generated (e.g., revenue)
+from
+      facebook_table  -- Using data from the first CTE
+union all
+select
+      ad_date,  -- Date of the advertisement
+      'Google Ads' as "media_source",  -- Media source for Google
+      campaign_name,  -- Campaign name
+      adset_name,  -- Ad set name
+      spend,  -- Advertising spend
+      impressions,  -- Number of impressions
+      clicks,  -- Number of clicks
+      value  -- Value generated (e.g., revenue)
+from
+      google_ads_basic_daily  -- Data from Google Ads table
+)
+
+-- Main query: Aggregate and filter data from all ad platforms
+select
+      ad_date,  -- Date of the advertisement
+      media_source,  -- Source of the media (Facebook or Google)
+      campaign_name,  -- Campaign name
+      adset_name,  -- Ad set name
+      SUM(spend) as total_spend,  -- Total advertising spend
+      SUM(impressions) as total_impressions,  -- Total number of impressions
+      SUM(clicks) as total_clicks,  -- Total number of clicks
+      SUM(value) as total_value  -- Total value generated
+from
+    all_ads_data
+where 
+    spend > 0 and clicks > 0 and impressions > 0  -- Filter out rows with invalid or zero metrics
+group by
+    ad_date, media_source, campaign_name, adset_name  -- Grouping by key identifiers
+order by
+    ad_date, media_source, campaign_name, adset_name;  -- Sort the output by these columns
